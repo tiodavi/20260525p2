@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # 資料庫設定 (Neon / SQLite)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v4.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v5.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -20,6 +20,8 @@ class Product(db.Model):
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
     category = db.Column(db.String(50), default='茶飲')
+    # 🌟 新增：圖片網址欄位
+    image_url = db.Column(db.String(500), nullable=True)
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,17 +39,23 @@ class OrderItem(db.Model):
     ice_level = db.Column(db.String(30), nullable=False) 
     toppings = db.Column(db.String(100), default='')     
 
-# 初始化資料庫與預設茶單
+# 初始化資料庫與預設茶單（含精美飲品圖片）
 with app.app_context():
     db.create_all()
     if Product.query.count() == 0:
         db.session.add_all([
-            Product(name="茉莉綠茶", price=30, category="原茶"),
-            Product(name="四季春青茶", price=30, category="原茶"),
-            Product(name="波霸奶茶", price=50, category="奶茶"),
-            Product(name="珍波椰青茶", price=50, category="混調"),
-            Product(name="紅茶瑪奇朵", price=55, category="瑪奇朵"),
-            Product(name="旺來紅", price=60, category="季節限定")
+            Product(name="茉莉綠茶", price=30, category="原茶", 
+                    image_url="https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?w=400&auto=format&fit=crop&q=60"),
+            Product(name="四季春青茶", price=30, category="原茶", 
+                    image_url="https://images.unsplash.com/photo-1597318181409-cf64d0b5d8a2?w=400&auto=format&fit=crop&q=60"),
+            Product(name="波霸奶茶", price=50, category="奶茶", 
+                    image_url="https://images.unsplash.com/photo-1541658016709-82535e94bc69?w=400&auto=format&fit=crop&q=60"),
+            Product(name="珍波椰青茶", price=50, category="混調", 
+                    image_url="https://images.unsplash.com/photo-1505252585461-04db1ebb846d?w=400&auto=format&fit=crop&q=60"),
+            Product(name="紅茶瑪奇朵", price=55, category="瑪奇朵", 
+                    image_url="https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400&auto=format&fit=crop&q=60"),
+            Product(name="旺來紅", price=60, category="季節限定", 
+                    image_url="https://images.unsplash.com/photo-1619158403521-ed9795026d47?w=400&auto=format&fit=crop&q=60")
         ])
         db.session.commit()
 
@@ -78,8 +86,12 @@ BASE_TEMPLATE = """
         .btn-outline-wine:hover, .btn-check:checked + .btn-outline-wine { background-color: var(--primary-wine); color: white; }
         .navbar { box-shadow: 0 2px 12px rgba(114,47,55,0.15); }
         .card { border: 1px solid #eee; box-shadow: 0 4px 10px rgba(0,0,0,0.03); border-radius: 12px; }
-        .item-card { cursor: pointer; transition: all 0.2s ease-in-out; background: #fff; }
+        
+        /* 🌟 飲品卡片縮排與美化 */
+        .item-card { cursor: pointer; transition: all 0.2s ease-in-out; background: #fff; overflow: hidden; border-radius: 12px; }
         .item-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(114,47,55,0.12); border-color: var(--primary-wine); }
+        .drink-img { width: 100%; height: 140px; object-fit: cover; background-color: #f5f5f5; }
+        
         .nav-tabs .nav-link.active { background-color: var(--primary-wine); color: white; border: none; }
         .nav-tabs .nav-link { color: var(--primary-wine); font-weight: bold; }
         .sticky-cart { position: sticky; top: 24px; max-height: calc(100vh - 100px); display: flex; flex-direction: column; }
@@ -141,11 +153,18 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         <div class="row g-3">
             {% for p in products %}
             <div class="col-xl-3 col-lg-4 col-sm-6">
-                <div class="card item-card p-3 h-100" onclick="openCustomizeModal('{{ p.name }}', {{ p.price }})">
-                    <span class="badge bg-light text-wine border align-self-start mb-2">{{ p.category }}</span>
-                    <h5 class="fw-bold text-dark mb-1">{{ p.name }}</h5>
-                    <div class="text-end mt-auto">
-                        <span class="fs-4 fw-bold text-wine">${{ p.price }}</span>
+                <div class="card item-card h-100" onclick="openCustomizeModal('{{ p.name }}', {{ p.price }})">
+                    {% if p.image_url %}
+                        <img src="{{ p.image_url }}" class="drink-img" alt="{{ p.name }}">
+                    {% else %}
+                        <div class="drink-img d-flex align-items-center justify-content-center text-muted fs-6">暫無圖片</div>
+                    {% endif %}
+                    <div class="p-3 d-flex flex-column flex-grow-1">
+                        <span class="badge bg-light text-wine border align-self-start mb-2">{{ p.category }}</span>
+                        <h5 class="fw-bold text-dark mb-1 fs-6">{{ p.name }}</h5>
+                        <div class="text-end mt-auto pt-2">
+                            <span class="fs-4 fw-bold text-wine">${{ p.price }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -157,7 +176,7 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         <div class="card p-3 sticky-cart shadow-sm bg-white">
             <h4 class="text-wine fw-bold mb-3 pb-2 border-bottom">Current Order / 當前訂單</h4>
             <div id="cartList" class="list-group flex-grow-1 my-2" style="overflow-y: auto; min-height: 250px; max-height: calc(100vh - 350px);">
-                </div>
+            </div>
             <div class="border-top pt-3">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <span class="fs-5 fw-bold">應收總計:</span>
@@ -318,7 +337,7 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
     }
 
     function checkout() {
-        if(cart.length === 0) return alert('當前訂單無 any 品項。');
+        if(cart.length === 0) return alert('當前訂單無任何品項。');
         
         fetch('/api/checkout', {
             method: 'POST',
@@ -399,20 +418,28 @@ ADMIN_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
                 <div class="card p-4 mb-4 bg-light">
                     <h5 class="text-wine fw-bold mb-3">上架新飲品</h5>
                     <form method="POST" action="{{ url_for('add_product') }}" class="row g-3 align-items-end">
-                        <div class="col-md-4"><label class="form-label fw-bold">品名</label><input type="text" name="name" class="form-control" required></div>
-                        <div class="col-md-3"><label class="form-label fw-bold">系列分類</label><input type="text" name="category" class="form-control" placeholder="如：原茶/奶茶" required></div>
-                        <div class="col-md-3"><label class="form-label fw-bold">基準售價</label><input type="number" name="price" class="form-control" required></div>
+                        <div class="col-md-3"><label class="form-label fw-bold">品名</label><input type="text" name="name" class="form-control" required></div>
+                        <div class="col-md-2"><label class="form-label fw-bold">系列分類</label><input type="text" name="category" class="form-control" placeholder="如：原茶/奶茶" required></div>
+                        <div class="col-md-2"><label class="form-label fw-bold">基準售價</label><input type="number" name="price" class="form-control" required></div>
+                        <div class="col-md-3"><label class="form-label fw-bold">圖片網址 (URL)</label><input type="url" name="image_url" class="form-control" placeholder="https://..."></div>
                         <div class="col-md-2"><button type="submit" class="btn btn-wine w-100 py-2">確認上架</button></div>
                     </form>
                 </div>
                 
                 <table class="table table-hover bg-white border">
                     <thead class="bg-wine text-white">
-                        <tr><th>商品識別碼</th><th>飲品名稱</th><th>系列歸屬</th><th>基準價格</th><th>營運操作</th></tr>
+                        <tr><th>縮圖</th><th>商品識別碼</th><th>飲品名稱</th><th>系列歸屬</th><th>基準價格</th><th>營運操作</th></tr>
                     </thead>
                     <tbody>
                         {% for p in products %}
                         <tr>
+                            <td>
+                                {% if p.image_url %}
+                                    <img src="{{ p.image_url }}" style="width: 50px; height: 40px; object-fit: cover; border-radius: 4px;">
+                                {% else %}
+                                    <span class="text-muted fs-7">無縮圖</span>
+                                {% endif %}
+                            </td>
                             <td>{{ p.id }}</td>
                             <td class="fw-bold">{{ p.name }}</td>
                             <td><span class="badge bg-light text-dark border">{{ p.category }}</span></td>
@@ -468,7 +495,9 @@ def add_product():
     new_product = Product(
         name=request.form['name'], 
         category=request.form['category'], 
-        price=int(request.form['price'])
+        price=int(request.form['price']),
+        # 🌟 寫入圖片網址
+        image_url=request.form.get('image_url')
     )
     db.session.add(new_product)
     db.session.commit()
