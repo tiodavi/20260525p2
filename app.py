@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # 資料庫設定 (Neon / SQLite)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v2.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v3.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -33,12 +33,11 @@ class OrderItem(db.Model):
     product_name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
     quantity = db.Column(db.Integer, default=1)
-    # 新增客製化標籤欄位
-    sweetness = db.Column(db.String(30), nullable=False) # 正常糖/半糖...
-    ice_level = db.Column(db.String(30), nullable=False) # 正常冰/微冰...
-    toppings = db.Column(db.String(100), default='')     # 加波霸/加椰果...
+    sweetness = db.Column(db.String(30), nullable=False) 
+    ice_level = db.Column(db.String(30), nullable=False) 
+    toppings = db.Column(db.String(100), default='')     
 
-# 初始化資料庫與 50 嵐風格預設茶單
+# 初始化資料庫與預設茶單
 with app.app_context():
     db.create_all()
     if Product.query.count() == 0:
@@ -65,10 +64,10 @@ BASE_TEMPLATE = """
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-wine: #722F37;    /* 酒紅主色 */
-            --dark-wine: #521e24;       /* 深酒紅 */
-            --light-wine: #fcf6f6;      /* 淡淡酒紅襯底 */
-            --accent-gold: #C5A059;     /* 輔助金色 */
+            --primary-wine: #722F37;    
+            --dark-wine: #521e24;       
+            --light-wine: #fcf6f6;      
+            --accent-gold: #C5A059;     
         }
         body { background-color: #fdfdfd; font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
         .bg-wine { background-color: var(--primary-wine) !important; color: white; }
@@ -232,18 +231,13 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         customModalInstance = new bootstrap.Modal(document.getElementById('customModal'));
     });
 
-    // 點擊商品：暫存基本資訊並彈出規格視窗
     function openCustomizeModal(name, price) {
         currentItem = { name, price };
         document.getElementById('modalProductName').innerText = `客製規格：${name} ($${price})`;
-        
-        // 重置加料勾選狀態
         document.querySelectorAll('input[name="topping"]').forEach(cb => cb.checked = false);
-        
         customModalInstance.show();
     }
 
-    // 規格視窗點擊確認：計算加價並塞入購物車陣列
     function confirmAddToCart() {
         const selectedSweetness = document.querySelector('input[name="sweetness"]:checked').value;
         const selectedIce = document.querySelector('input[name="ice"]:checked').value;
@@ -252,10 +246,9 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         let toppingPrice = 0;
         document.querySelectorAll('input[name="topping"]:checked').forEach(cb => {
             toppings.push(cb.value);
-            toppingPrice += 10; // 每項配料加 10 元
+            toppingPrice += 10;
         });
 
-        // 檢查購物車中是否已有「完全相同規格」的飲品
         let finalPrice = currentItem.price + toppingPrice;
         let toppingsStr = toppings.join(',');
 
@@ -283,7 +276,6 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         renderCart();
     }
 
-    // 渲染購物車介面
     function renderCart() {
         const list = document.getElementById('cartList');
         let total = 0;
@@ -293,7 +285,9 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
             let itemTotal = item.price * item.quantity;
             total += itemTotal;
 
-            let toppingBadge = item.toppings ? `<span class="badge bg-warning text-dark me-1">+${item.toppings.replace(/,/g, '/')}</span>` : '';
+            // 修正這裡：避開正則表達式斜線，改用 split 與 join 處理字串轉換
+            let displayToppings = item.toppings ? item.toppings.split(',').join('/') : '';
+            let toppingBadge = item.toppings ? `<span class="badge bg-warning text-dark me-1">+${displayToppings}</span>` : '';
 
             list.innerHTML += `
             <div class="list-group-item d-flex justify-content-between align-items-start p-2 mb-2 border rounded bg-light">
@@ -324,7 +318,6 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
         renderCart();
     }
 
-    // 將包含規格的點餐清單發送到後端寫入資料庫
     function checkout() {
         if(cart.length === 0) return alert('當前訂單無任何品項。');
         
@@ -387,7 +380,7 @@ ADMIN_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
                                         <span class="badge bg-wine me-1">{{ item.sweetness }}</span>
                                         <span class="badge bg-secondary me-1">{{ item.ice_level }}</span>
                                         {% if item.toppings %}
-                                        <span class="badge bg-warning text-dark">+{{ item.toppings.replace(/,/g, ' +') }}</span>
+                                        <span class="badge bg-warning text-dark">+{{ item.toppings.split(',').join(' +') }}</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-dark fw-bold">x {{ item.quantity }}</td>
@@ -437,7 +430,7 @@ ADMIN_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
 """)
 
 # ==========================================
-# 路由與 控制 API 核心 (Controller)
+# 路由與控制核心 (Controller)
 # ==========================================
 @app.before_request
 def check_login():
@@ -489,9 +482,6 @@ def delete_product(id):
     db.session.commit()
     return redirect(url_for('admin_dashboard'))
 
-# ------------------------------------------
-# 客製化結帳核心 API (含客製屬性處理)
-# ------------------------------------------
 @app.route('/api/checkout', methods=['POST'])
 def api_checkout():
     data = request.get_json()
@@ -499,15 +489,11 @@ def api_checkout():
         return jsonify({'success': False, 'message': '無效的點餐清單'}), 400
     
     try:
-        # 計算整筆訂單總和
         total = sum(item['price'] * item['quantity'] for item in data['items'])
-        
-        # 建立訂單主檔
         new_order = Order(total_price=total)
         db.session.add(new_order)
         db.session.flush() 
         
-        # 逐筆寫入帶有「糖分」、「冰量」、「加料」的訂單明細
         for item in data['items']:
             order_item = OrderItem(
                 order_id=new_order.id,
