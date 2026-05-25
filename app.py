@@ -7,7 +7,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # 資料庫設定 (Neon / SQLite)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v3.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///pos_v4.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -285,7 +285,6 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
             let itemTotal = item.price * item.quantity;
             total += itemTotal;
 
-            // 修正這裡：避開正則表達式斜線，改用 split 與 join 處理字串轉換
             let displayToppings = item.toppings ? item.toppings.split(',').join('/') : '';
             let toppingBadge = item.toppings ? `<span class="badge bg-warning text-dark me-1">+${displayToppings}</span>` : '';
 
@@ -319,7 +318,7 @@ POS_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
     }
 
     function checkout() {
-        if(cart.length === 0) return alert('當前訂單無任何品項。');
+        if(cart.length === 0) return alert('當前訂單無 any 品項。');
         
         fetch('/api/checkout', {
             method: 'POST',
@@ -380,7 +379,7 @@ ADMIN_TEMPLATE = BASE_TEMPLATE.replace("{% block content %}{% endblock %}", """
                                         <span class="badge bg-wine me-1">{{ item.sweetness }}</span>
                                         <span class="badge bg-secondary me-1">{{ item.ice_level }}</span>
                                         {% if item.toppings %}
-                                        <span class="badge bg-warning text-dark">+{{ item.toppings.split(',').join(' +') }}</span>
+                                        <span class="badge bg-warning text-dark">+{{ item.toppings.replace(',', ' +') }}</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-dark fw-bold">x {{ item.quantity }}</td>
